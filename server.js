@@ -797,7 +797,7 @@ app.post('/api/generate-interview-questions', async (req, res) => {
 
     console.log(`📋 Found ${perplexityKeys.length} Perplexity key(s), ${geminiKeys.length} Gemini key(s), and ${huggingfaceKeys.length} HuggingFace key(s)`);
 
-    const prompt = `You are an expert technical interviewer. Generate 15 highly relevant interview questions with VERY DETAILED answers based on the candidate's resume and job description.
+    const prompt = `You are an expert technical interviewer with deep industry experience. Generate EXACTLY 20 highly relevant interview questions with comprehensive answers based on the candidate's resume and the job description.
 
 **Candidate's Resume:**
 ${resumeText}
@@ -805,82 +805,160 @@ ${resumeText}
 **Job Description for ${jobTitle} at ${companyName}:**
 ${jobDescription}
 
-REQUIREMENTS:
-- Generate EXACTLY 15 questions
-- 80% MUST be practical/technical questions with EXTENSIVE code examples
-- 20% can be behavioral questions
-- Focus on skills mentioned in resume and job description
-- Every technical question MUST include working code examples
+**QUESTION DISTRIBUTION REQUIREMENTS:**
+- Generate EXACTLY 30 questions total
+- 15 questions (50%) MUST be CONCEPTUAL based on real-time experience, projects, and scenarios
+- 15 questions (50%) MUST be CODING questions with detailed explanations and complete code examples
+- ALL questions must be directly relevant to skills mentioned in the resume and job description
+- Match questions to the role's primary programming languages and technologies
 
-ANSWER FORMAT - EACH ANSWER MUST HAVE:
-1. Detailed explanation paragraph (5-6 lines)
-2. Complete working code example in triple backticks
-3. Additional explanation of the code (3-4 lines)
-4. Real-world application or best practices (2-3 lines)
+**ROLE-SPECIFIC LANGUAGE GUIDELINES:**
+Tailor questions based on the job role and use appropriate languages from this reference:
 
-QUESTION FORMAT:
+🖥️ SOFTWARE & DATA ROLES:
+• Full Stack Engineer: JavaScript/TypeScript, Python/Java, SQL
+• Backend Developer: Java, Python, Go
+• Frontend Developer: JavaScript, TypeScript, HTML/CSS
+• Data Analyst: SQL, Python, R
+• Data Engineer: Python, SQL, Scala
+• Data Scientist: Python, R, SQL
+• Machine Learning Engineer: Python, C++, Java
+• AI/LLM Engineer: Python, C++, Rust
+• Cloud Engineer: Python, Go, Java
+• DevOps Engineer: Python, Go, Bash
+• MLOps Engineer: Python, Go, Shell
+• Cybersecurity Engineer: Python, C, PowerShell
+• Mobile App Developer: Kotlin, Swift, Dart
+• Game Developer: C#, C++, Python
+• Blockchain Developer: Solidity, Rust, Go
 
-1. [Write a specific, practical question here]
+⚙️ HARDWARE/SEMICONDUCTOR/VLSI ROLES:
+• RTL Design Engineer: SystemVerilog, Verilog, TCL/Python
+• VLSI Design Engineer: Verilog/SystemVerilog, VHDL, Python/Perl
+• Design Verification Engineer: SystemVerilog (UVM), Verilog, Python/Perl
+• ASIC Verification Engineer: SystemVerilog + UVM, Verilog, Python/C++
+• FPGA Prototyping Engineer: VHDL, Verilog, TCL/Python
+• Physical Design Engineer: TCL, Python, Perl
+• DFT Engineer: SystemVerilog, TCL, Python
+• CAD/EDA Tools Engineer: Python, Perl, TCL
+• Embedded Systems Engineer: C, C++, Assembly
+• Firmware Engineer: C, C++, Python
+• Semiconductor Test Engineer: C, Python, VBScript/LabVIEW
+• Mixed-Signal Design Engineer: Verilog-A/Verilog-AMS, SystemVerilog, MATLAB
+• Analog Layout Engineer: SKILL (Cadence), Python, TCL
+• DSP Engineer: C, C++, MATLAB
+• SOC Architect/SOC Design Engineer: SystemVerilog, C++, Python
+
+**FORMAT FOR CONCEPTUAL QUESTIONS (50% - 12 Questions):**
+
+Question [Number]: [Specific scenario-based or experience-based question related to real projects]
 Answer:
-[Paragraph 1: Detailed explanation of the concept, approach, methodology, and key considerations - 5-6 lines of comprehensive explanation]
+[Paragraph 1: 6-7 lines covering the core concept, approach, methodology, and real-world considerations. Discuss how this applies in production environments, team scenarios, or actual project implementations.]
 
-[Paragraph 2: Complete working code example with proper formatting]
-\`\`\`language
-[Complete, executable code here - well-formatted and production-ready]
+[Paragraph 2: 6-7 lines providing specific examples, best practices, trade-offs, challenges faced in real scenarios, and how experienced professionals handle this situation. Include metrics, tools, or frameworks where relevant.]
+
+**EXAMPLE OF PERFECT CONCEPTUAL ANSWER:**
+
+Question 1: Describe a situation where you had to optimize a slow-running database query in a production system. What was your approach and what tools did you use?
+Answer:
+When dealing with slow queries in production, the first step is to identify the bottleneck using database profiling tools like EXPLAIN PLAN in PostgreSQL or Query Execution Plans in SQL Server. I would analyze query execution time, examine table indexes, check for full table scans, and review join operations. The optimization process involves understanding data distribution, cardinality, and access patterns. Common issues include missing indexes, inefficient joins, or selecting unnecessary columns. It's crucial to test changes in a staging environment first and monitor the impact using APM tools like New Relic or Datadog.
+
+In one project, I reduced query time from 45 seconds to 2 seconds by adding composite indexes on frequently filtered columns and rewriting a subquery as a JOIN. I used query profiling to identify that a WHERE clause wasn't utilizing indexes properly. After optimization, I set up alerts for query performance degradation and documented the changes for the team. This experience taught me to always measure performance before and after changes, consider the trade-off between read and write performance when adding indexes, and involve DBAs for complex optimization scenarios.
+
+**FORMAT FOR CODING QUESTIONS (50% - 8 Questions):**
+
+Question [Number]: [Specific coding problem or implementation challenge]
+Answer:
+[6-7 lines of explanation covering the problem, approach, algorithm/data structure choice, time/space complexity, and why this solution is optimal]
+
+\`\`\`[language]
+[Complete, production-ready, well-commented code that actually runs]
+[Include proper error handling, edge cases, and best practices]
+[Code should be 15-30 lines minimum for meaningful implementation]
 \`\`\`
 
-[Paragraph 3: Explain what the code does, how it works, and why this approach is used - 3-4 lines]
+[6-7 lines explaining how the code works, key implementation details, and what makes this solution effective]
 
-[Paragraph 4: Real-world applications, best practices, performance considerations, or common pitfalls - 2-3 lines]
+[6-7 lines covering real-world applications, performance considerations, alternative approaches, or common pitfalls to avoid]
 
-CODE FORMATTING RULES - CRITICAL:
-- ALWAYS use triple backticks: \`\`\`language
-- Specify language: \`\`\`sql, \`\`\`python, \`\`\`javascript, \`\`\`java, etc.
-- Write COMPLETE, WORKING code - not snippets
-- Include proper indentation and formatting
-- Add comments in code where helpful
-- Make code production-ready and realistic
+**EXAMPLE OF PERFECT CODING ANSWER:**
 
-EXAMPLE OF PERFECT ANSWER:
-
-1. Write a Python function to find duplicate values in a list and return them with their counts.
+Question 13: Implement a rate limiter in Python that allows a maximum of 5 requests per minute per user using the sliding window algorithm.
 Answer:
-This problem requires iterating through the list and tracking the frequency of each element. The most efficient approach uses a dictionary (hash map) to store element counts, which provides O(1) lookup time. We can use Python's Counter class from the collections module for a clean implementation, or build our own dictionary solution. The function should handle edge cases like empty lists and return results in a useful format.
+A rate limiter controls the number of requests a user can make within a time window. The sliding window approach is more accurate than fixed windows as it considers the exact timestamps of requests. We'll use a deque to store timestamps and remove expired entries. This solution has O(1) amortized time complexity for checking and O(k) space complexity where k is the request limit.
 
 \`\`\`python
-from collections import Counter
+from collections import deque
+from datetime import datetime, timedelta
+from typing import Dict
 
-def find_duplicates(input_list):
-    # Count occurrences of each element
-    element_counts = Counter(input_list)
+class RateLimiter:
+    def __init__(self, max_requests: int = 5, time_window: int = 60):
+        """
+        Initialize rate limiter with sliding window algorithm
+        :param max_requests: Maximum requests allowed
+        :param time_window: Time window in seconds
+        """
+        self.max_requests = max_requests
+        self.time_window = time_window
+        self.user_requests: Dict[str, deque] = {}
     
-    # Filter elements that appear more than once
-    duplicates = {element: count for element, count in element_counts.items() if count > 1}
-    
-    return duplicates
+    def is_allowed(self, user_id: str) -> bool:
+        """
+        Check if request is allowed for user
+        :param user_id: Unique user identifier
+        :return: True if request is allowed, False otherwise
+        """
+        current_time = datetime.now()
+        
+        # Initialize user's request queue if not exists
+        if user_id not in self.user_requests:
+            self.user_requests[user_id] = deque()
+        
+        request_queue = self.user_requests[user_id]
+        
+        # Remove requests outside the time window
+        cutoff_time = current_time - timedelta(seconds=self.time_window)
+        while request_queue and request_queue[0] < cutoff_time:
+            request_queue.popleft()
+        
+        # Check if under rate limit
+        if len(request_queue) < self.max_requests:
+            request_queue.append(current_time)
+            return True
+        
+        return False
 
 # Example usage
-numbers = [1, 2, 3, 2, 4, 5, 3, 2, 6]
-result = find_duplicates(numbers)
-print(result)  # Output: {2: 3, 3: 2}
+limiter = RateLimiter(max_requests=5, time_window=60)
+user = "user_123"
+
+for i in range(7):
+    if limiter.is_allowed(user):
+        print(f"Request {i+1}: Allowed")
+    else:
+        print(f"Request {i+1}: Rate limit exceeded")
 \`\`\`
 
-This code uses Counter to efficiently count all elements in O(n) time complexity. The dictionary comprehension filters only duplicates (count > 1) and returns them with their frequencies. The function is clean, readable, and handles any hashable data type, not just numbers.
+The code maintains a queue of timestamps for each user and removes expired entries before checking the limit. The deque data structure provides efficient O(1) append and popleft operations. This implementation is thread-safe for single-threaded applications but would need locks or Redis for distributed systems.
 
-In real-world applications, this is useful for data validation, detecting duplicate records in databases, or identifying repeated entries in log files. For very large datasets, consider using pandas or numpy for better performance.
+In production APIs, rate limiters prevent abuse and ensure fair resource usage. For distributed systems, use Redis with ZSET for shared state across servers. Consider different limits for authenticated vs anonymous users and implement exponential backoff for repeated violations.
 
-CRITICAL INSTRUCTIONS FOR ALL 15 QUESTIONS:
-- Each answer must be 12-15 lines minimum
-- EVERY technical question MUST include code in triple backticks
-- Code must be complete and executable
-- Explain the code thoroughly
-- Include real-world context
-- For SQL: Write complete queries with JOINs, WHERE clauses, etc.
-- For Python: Write complete functions with docstrings
-- For JavaScript: Write complete functions with error handling
-- For behavioral questions: Use STAR method with specific metrics
+**CRITICAL REQUIREMENTS FOR ALL 30 QUESTIONS:**
+✅ Questions 1-15: Conceptual/Experience-based (10 lines each, 2 paragraphs)
+✅ Questions 16-30: Coding questions (7 lines explanation + complete code + 7 lines details + 7 lines real-world context)
+✅ Every coding question MUST include working code in triple backticks with language specification
+✅ Code must be complete, executable, and production-quality (15-30 lines minimum)
+✅ Match programming languages to the job role and resume
+✅ Focus on technologies and skills explicitly mentioned in the job description
+✅ Avoid generic questions - make them specific to the candidate's background
+✅ Include proper error handling, edge cases, and comments in code
+✅ For hardware/VLSI roles: Include SystemVerilog/Verilog/VHDL as appropriate
+✅ For data roles: Include SQL queries with JOINs, aggregations, and optimizations
+✅ For backend roles: Include API design, database interactions, and system design
+✅ For frontend roles: Include React/Vue/Angular components with state management
 
-Generate all 15 questions now following this exact format. Make answers VERY detailed and comprehensive.`;
+Generate all 30 questions NOW following this EXACT format. Make answers comprehensive, practical, and directly relevant to the candidate's experience and the job requirements.`;
 
     let questions = null;
     let usedProvider = null;
@@ -909,13 +987,13 @@ Generate all 15 questions now following this exact format. Make answers VERY det
               }
             ],
             temperature: 0.7,
-            max_tokens: 3072
+            max_tokens: 9072
           }, {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${currentKey}`
             },
-            timeout: 80000
+            timeout: 120000
           });
 
           questions = response.data.choices?.[0]?.message?.content;

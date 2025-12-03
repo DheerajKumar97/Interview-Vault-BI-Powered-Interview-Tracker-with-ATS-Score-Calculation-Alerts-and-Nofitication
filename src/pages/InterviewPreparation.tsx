@@ -35,8 +35,6 @@ const InterviewPreparation = () => {
     const [loading, setLoading] = useState(true);
     const [resumeText, setResumeText] = useState<string | null>(null);
     const [resumeLoadedAt, setResumeLoadedAt] = useState<Date | null>(null);
-
-    // Interview Questions state
     const [generatingQuestions, setGeneratingQuestions] = useState<boolean>(false);
     const [interviewQuestions, setInterviewQuestions] = useState<string | null>(null);
     const [customApiKey, setCustomApiKey] = useState<string>("");
@@ -46,7 +44,6 @@ const InterviewPreparation = () => {
         fetchApplications();
         fetchLatestResume();
 
-        // Load saved state from localStorage
         const savedQuestions = localStorage.getItem('interviewQuestions');
         const savedCompanyId = localStorage.getItem('interviewCompanyId');
 
@@ -54,7 +51,6 @@ const InterviewPreparation = () => {
         if (savedCompanyId) setSelectedCompanyId(savedCompanyId);
     }, []);
 
-    // Save state to localStorage whenever it changes
     useEffect(() => {
         if (interviewQuestions) localStorage.setItem('interviewQuestions', interviewQuestions);
         if (selectedCompanyId) localStorage.setItem('interviewCompanyId', selectedCompanyId);
@@ -264,7 +260,6 @@ const InterviewPreparation = () => {
             });
 
             if (!response.ok) {
-                // Check for 404 specifically to warn about server restart
                 if (response.status === 404) {
                     throw new Error("Server endpoint not found. Please restart the backend server (npm run server).");
                 }
@@ -281,10 +276,12 @@ const InterviewPreparation = () => {
             }
 
             const data = await response.json();
+            console.log("=== FULL AI RESPONSE ===");
+            console.log(data.questions);
+            console.log("=== END RESPONSE ===");
             setInterviewQuestions(data.questions);
             toast.success(t("Interview questions generated!"));
 
-            // If custom key was used successfully, save it to backend
             if (customApiKey) {
                 try {
                     await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/update-env`, {
@@ -327,107 +324,335 @@ const InterviewPreparation = () => {
         return { date: formattedDate, time: formattedTime };
     };
 
-    // Custom renderer for interview questions with clean formatting
     const renderInterviewQuestions = (text: string) => {
         if (!text) return null;
 
-        // Clean up ALL escaped characters and markdown artifacts
+        const detectCodeLanguage = (code: string): string => {
+            const trimmed = code.trim().toLowerCase();
+            const original = code.trim();
+
+            const languagePatterns: Record<string, string[]> = {
+                python: ['def ', 'import ', 'print(', 'class ', '__init__', 'self.', 'elif ', 'lambda '],
+                java: ['public class', 'private ', 'system.out.println', 'void ', 'static ', 'extends ', 'implements '],
+                javascript: ['const ', 'let ', 'var ', 'function ', '=>', 'console.log', 'async ', 'await '],
+                typescript: ['interface ', 'type ', ': string', ': number', 'export ', 'import {'],
+                go: ['func ', 'package main', 'import "', 'go ', 'defer ', 'chan '],
+                rust: ['fn ', 'let mut', 'impl ', 'trait ', 'struct ', 'enum ', 'use '],
+                sql: ['select ', 'from ', 'where ', 'insert ', 'update ', 'delete ', 'join ', 'group by'],
+                verilog: ['module ', 'always @', 'reg ', 'wire ', 'input ', 'output ', 'assign '],
+                systemverilog: ['class ', 'virtual ', 'interface ', 'constraint ', 'randomize', 'covergroup '],
+                vhdl: ['entity ', 'architecture ', 'process ', 'signal ', 'port ', 'component '],
+                dax: ['evaluate', 'calculate', 'sumx', 'filter(', 'related(', 'earlier('],
+                c: ['#include', 'int main', 'printf(', 'malloc(', 'void*', 'struct '],
+                cpp: ['#include <iostream>', 'std::', 'class ', 'namespace ', 'template<', 'cout <<'],
+                csharp: ['using system', 'namespace ', 'class ', 'public ', 'private ', 'var '],
+                ruby: ['def ', 'end', 'puts ', 'require ', 'class ', 'module ', 'do |'],
+                php: ['<?php', 'function ', 'echo ', '$_', 'require ', 'namespace '],
+                swift: ['func ', 'var ', 'let ', 'import ', 'class ', 'struct ', 'protocol '],
+                kotlin: ['fun ', 'val ', 'var ', 'class ', 'data class', 'object ', 'companion '],
+                scala: ['def ', 'val ', 'var ', 'object ', 'class ', 'trait ', 'case class'],
+                r: ['<- ', 'function(', 'library(', 'data.frame', 'ggplot(', 'summary('],
+                matlab: ['function ', 'end', 'disp(', 'plot(', 'matrix(', 'fprintf('],
+                shell: ['#!/bin/bash', 'echo ', 'if [', 'fi', 'for ', 'while ', 'do'],
+                powershell: ['param(', 'write-host', '$_', 'foreach ', 'get-', 'set-'],
+                yaml: ['apiversion:', 'kind:', 'metadata:', 'spec:', '- name:'],
+                json: ['{"', '": "', '": {', '": ['],
+                xml: ['<?xml', '</', '<!doctype', 'xmlns='],
+                html: ['<!doctype html', '<html', '<head', '<body', '<div', '<script'],
+                css: ['{', '}', 'display:', 'margin:', 'padding:', 'color:'],
+                assembly: ['mov ', 'add ', 'sub ', 'jmp ', 'call ', 'ret', 'push ', 'pop '],
+                fortran: ['program ', 'subroutine ', 'function ', 'implicit ', 'real ', 'integer '],
+                cobol: ['identification division', 'procedure division', 'working-storage', 'perform '],
+                lua: ['function ', 'local ', 'then', 'end', 'require ', 'table.'],
+                perl: ['sub ', 'my ', '$_', 'use ', 'print ', 'foreach '],
+                haskell: ['data ', 'type ', 'class ', 'instance ', 'where ', '::'],
+                elixir: ['defmodule ', 'def ', 'do', 'end', 'defp ', '|>'],
+                dart: ['void ', 'class ', 'import ', 'async ', 'await ', 'widget '],
+                solidity: ['pragma solidity', 'contract ', 'function ', 'mapping(', 'address ', 'uint'],
+            };
+
+            for (const [language, patterns] of Object.entries(languagePatterns)) {
+                for (const pattern of patterns) {
+                    if (trimmed.includes(pattern)) {
+                        return language;
+                    }
+                }
+            }
+
+            const codeIndicators = [
+                /\{[\s\S]*\}/,
+                /\([\s\S]*\)[\s]*\{/,
+                /;[\s]*$/,
+                /^\s*(if|for|while|switch|try|catch)\s*\(/,
+                /\[\d+\]/,
+                /->|=>|::|\.\w+\(/,
+            ];
+
+            for (const indicator of codeIndicators) {
+                if (indicator.test(original)) {
+                    return 'code';
+                }
+            }
+
+            return 'code';
+        };
+
         let cleanedText = text
-            .replace(/\\\*/g, '')      // Remove escaped asterisks \*
-            .replace(/\*\*/g, '')      // Remove double asterisks **
-            .replace(/\*/g, '')        // Remove single asterisks *
-            .replace(/\\\//g, '')      // Remove escaped forward slashes \/
-            .replace(/\\/g, '')        // Remove any remaining backslashes
+            .replace(/\\\*/g, '')
+            .replace(/\*\*/g, '')
+            .replace(/\*/g, '')
+            .replace(/\\\//g, '')
+            .replace(/\\/g, '')
             .trim();
 
-        // Split by numbered questions (e.g., "1. ", "2. ", "3. ")
-        // Use word boundary \b to avoid splitting inside numbers (e.g., "10." becoming "1" and "0.")
-        let questions = cleanedText.split(/(?=\b\d+\.\s+)/g).filter(Boolean);
+        // Split by question numbers (1. 2. 3. etc.) or (Question 1:, Question 2:, etc.)
+        const firstQuestionMatch = cleanedText.match(/^(?:Question\s+)?1[\.:]\s+/m);
+        if (firstQuestionMatch) {
+            const firstQuestionIndex = cleanedText.indexOf(firstQuestionMatch[0]);
+            if (firstQuestionIndex > 0) {
+                cleanedText = cleanedText.substring(firstQuestionIndex);
+            }
+        }
 
-        // If no proper split, try by double newlines
+        // Split by question numbers (1. 2. 3. etc.) or (Question 1:, Question 2:, etc.)
+        let questions = cleanedText.split(/(?=^(?:Question\s+)?\d+[\.:]\s+)/gm).filter(Boolean);
+
         if (questions.length === 0 || questions.length === 1) {
             questions = cleanedText.split(/\n\n+/).filter(Boolean);
         }
 
-        // If still no proper split, return as single block
         if (questions.length === 0) {
             questions = [cleanedText];
         }
+
+        // Filter out lines that are just "Question" without any content or separator lines
+        questions = questions.filter(q => {
+            const trimmed = q.trim();
+            return trimmed &&
+                trimmed.toLowerCase() !== 'question' &&
+                trimmed.length > 10 &&
+                !trimmed.match(/^question\s*$/i) &&
+                !trimmed.match(/^---.*---$/);
+        });
+
+        let questionCounter = 0;
 
         return questions.map((question, index) => {
             const cleanQuestion = question.trim();
             if (!cleanQuestion) return null;
 
-            // Parse the question to extract title and content
             const lines = cleanQuestion.split('\n').filter(line => line.trim());
 
-            // Find the question line (usually first line with number)
             let questionLine = '';
             let contentLines: string[] = [];
 
             if (lines.length > 0) {
                 const firstLine = lines[0];
-                // Match patterns like "1. Question text"
-                if (firstLine.match(/^\d+\./)) {
+                // Match "Question 1:" or "1." formats
+                if (firstLine.match(/^(?:Question\s+)?\d+[\.:]/)) {
                     questionLine = firstLine.trim();
                     contentLines = lines.slice(1);
+                    questionCounter++;
+                } else if (firstLine.match(/^\d+[\.:]/)) {
+                    // Handle case where number is at start
+                    questionLine = firstLine.trim();
+                    contentLines = lines.slice(1);
+                    questionCounter++;
                 } else {
-                    contentLines = lines;
+                    // If no number found, still increment and add manually
+                    questionCounter++;
+                    questionLine = `${questionCounter}. ${firstLine}`;
+                    contentLines = lines.slice(1);
                 }
             }
 
-            // Function to render a line with potential bold headings
-            const renderLine = (line: string, lineIndex: number) => {
-                const trimmedLine = line.trim();
-                if (!trimmedLine) return null;
+            // Filter out separator lines from content
+            contentLines = contentLines.filter(line =>
+                !line.match(/^---.*---$/) &&
+                line.trim().length > 0
+            );
 
-                // Check if line starts with specific headings that should be bold
-                const boldHeadings = [
-                    'Answer:',
-                    'Question:',
-                    'Explanation:',
-                    'Key Points:',
-                    'Follow-up:',
-                    'Example:',
-                    'Technical Details:',
-                    'Best Practice:'
-                ];
+            // Skip if this is just a standalone "Question" text or has no content
+            if (questionLine.match(/^(?:Question\s*)?$/i) || contentLines.length === 0) {
+                return null;
+            }
 
-                // Check if this line starts with any of the bold headings
-                for (const heading of boldHeadings) {
-                    if (trimmedLine.startsWith(heading)) {
-                        const content = trimmedLine.substring(heading.length).trim();
-                        return (
-                            <p key={lineIndex} className="mb-2">
-                                <strong className="font-bold text-gray-900">{heading}</strong>
-                                {content && ` ${content}`}
-                            </p>
-                        );
+            const renderContent = (contentLines: string[]) => {
+                const result: JSX.Element[] = [];
+                let i = 0;
+                let currentParagraph: string[] = [];
+
+                const flushParagraph = () => {
+                    if (currentParagraph.length > 0) {
+                        let paragraphText = currentParagraph.join(' ').trim();
+                        // Remove any trailing --- markers
+                        paragraphText = paragraphText.replace(/---+\s*$/, '').trim();
+                        if (paragraphText && paragraphText.length > 10) {
+                            result.push(
+                                <p key={`paragraph-${result.length}`} className="mb-4 text-gray-900 leading-relaxed text-justify">
+                                    {paragraphText}
+                                </p>
+                            );
+                        }
+                        currentParagraph = [];
                     }
+                };
+
+                while (i < contentLines.length) {
+                    const line = contentLines[i].trim();
+
+                    // Skip empty lines or standalone "Question" text
+                    if (!line || line.match(/^question\s*$/i) || line.match(/^---.*---$/)) {
+                        flushParagraph();
+                        i++;
+                        continue;
+                    }
+
+                    // Detect code blocks
+                    if (line.startsWith('```') ||
+                        line.match(/^(def |public class |func |fn |SELECT |WITH |FROM |WHERE |INSERT |UPDATE |DELETE |CREATE |module |EVALUATE |#include|<\?php)/i)) {
+
+                        flushParagraph(); // Flush any pending paragraph before code
+
+                        let codeLines: string[] = [];
+                        let language = 'code';
+
+                        if (line.startsWith('```')) {
+                            language = line.substring(3).trim() || 'code';
+                            i++;
+                        } else {
+                            codeLines.push(line);
+                            i++;
+                        }
+
+                        while (i < contentLines.length) {
+                            const codeLine = contentLines[i];
+                            if (codeLine.trim() === '```') {
+                                i++;
+                                break;
+                            }
+                            codeLines.push(codeLine);
+                            i++;
+
+                            if (i < contentLines.length) {
+                                const nextLine = contentLines[i].trim();
+                                if (nextLine && !nextLine.match(/^[\s\{\}\(\)\[\];,\.]/)) {
+                                    const boldHeadings = ['Answer:', 'Question:', 'Explanation:', 'Key Points:',
+                                        'Follow-up:', 'Example:', 'Technical Details:', 'Best Practice:'];
+                                    if (boldHeadings.some(h => nextLine.startsWith(h))) {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        const codeText = codeLines.join('\n').trim();
+                        if (codeText) {
+                            if (language === 'code') {
+                                language = detectCodeLanguage(codeText);
+                            }
+
+                            result.push(
+                                <div key={`code-${result.length}`} className="my-4 rounded-lg overflow-hidden border-2 border-blue-300 bg-gray-900 shadow-lg">
+                                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2 flex items-center justify-between">
+                                        <span className="text-white text-xs font-bold uppercase tracking-wide">
+                                            {language} Code
+                                        </span>
+                                    </div>
+                                    <pre className="p-4 overflow-x-auto text-sm">
+                                        <code className="text-green-400 font-bold leading-relaxed">
+                                            {codeText}
+                                        </code>
+                                    </pre>
+                                </div>
+                            );
+                        }
+                        continue;
+                    }
+
+                    const cleanLine = line.replace(/[^\w\s\d.,!?;:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
+                    if (!cleanLine) {
+                        flushParagraph();
+                        i++;
+                        continue;
+                    }
+
+                    // Check for special headings like "Answer:"
+                    const boldHeadings = [
+                        'Answer:', 'Question:', 'Explanation:', 'Key Points:',
+                        'Follow-up:', 'Example:', 'Technical Details:', 'Best Practice:'
+                    ];
+
+                    let isHeading = false;
+                    for (const heading of boldHeadings) {
+                        if (cleanLine.startsWith(heading)) {
+                            flushParagraph(); // Flush before heading
+                            const content = cleanLine.substring(heading.length).trim();
+                            result.push(
+                                <div key={`heading-${result.length}`} className="mb-2 mt-4">
+                                    <h4 className="text-base font-bold text-blue-900 mb-2">
+                                        {heading}
+                                    </h4>
+                                    {content && content.length > 10 && (
+                                        <p className="text-gray-900 leading-relaxed">
+                                            {content}
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                            isHeading = true;
+                            break;
+                        }
+                    }
+
+                    if (!isHeading) {
+                        // Add to current paragraph
+                        currentParagraph.push(cleanLine);
+                    }
+
+                    i++;
                 }
 
-                // Regular line without bold heading
-                return <p key={lineIndex} className="mb-2">{trimmedLine}</p>;
+                // Flush any remaining paragraph
+                flushParagraph();
+
+                return result;
             };
 
+            // Determine question type based on content
+            const hasCodeBlock = contentLines.some(line =>
+                line.trim().startsWith('```') ||
+                line.match(/^(def |public |func |fn |SELECT |module |EVALUATE |class |import |package |let |const |var |function )/i)
+            );
+
+            const questionType = hasCodeBlock ? 'coding' : 'conceptual';
+            const badge = questionType === 'coding' ? '💻 Coding Question' : '💡 Conceptual Question';
+            const badgeColor = questionType === 'coding' ? 'bg-purple-100 text-purple-800 border-purple-300' : 'bg-green-100 text-green-800 border-green-300';
+
             return (
-                <div key={index} className="mb-6 last:mb-0 p-5 bg-gradient-to-br from-blue-50 to-white rounded-lg border border-blue-200 shadow-sm hover:shadow-md transition-all duration-200">
-                    {/* Question Title - Bold on One Line */}
+                <div key={index} className="mb-6 last:mb-0 p-6 bg-white rounded-xl border-2 border-gray-200 shadow-md hover:shadow-lg transition-all duration-300">
                     {questionLine && (
-                        <div className="mb-4 pb-3 border-b border-blue-100">
-                            <h3 className="text-lg font-bold text-blue-900 leading-tight">
-                                {questionLine}
-                            </h3>
+                        <div className="mb-5 pb-4 border-b-2 border-gray-200">
+                            <div className="flex items-start gap-3 mb-2">
+                                <div className="flex-shrink-0 w-10 h-10 bg-[#001f3f] text-white rounded-lg flex items-center justify-center font-bold text-lg shadow-md">
+                                    {questionCounter}
+                                </div>
+                                <h3 className="text-xl font-bold text-[#001f3f] leading-tight flex-1 pt-1">
+                                    {questionLine.replace(/^(?:Question\s+)?\d+[\.:]\s*/, '')}
+                                </h3>
+                            </div>
+                            <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full border ${badgeColor} mt-2`}>
+                                {badge}
+                            </span>
                         </div>
                     )}
 
-                    {/* Question Content */}
-                    <div className="text-gray-700 leading-relaxed space-y-2">
-                        {contentLines.map((line, lineIndex) => renderLine(line, lineIndex))}
+                    <div className="text-gray-900 leading-relaxed space-y-2">
+                        {renderContent(contentLines)}
                     </div>
                 </div>
             );
-        });
+        }).filter(Boolean);
     };
 
     return (
@@ -442,7 +667,6 @@ const InterviewPreparation = () => {
                     <Header />
                 </div>
 
-                {/* Top Action Bar */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                     <div className="flex items-center gap-2 flex-wrap">
                         <Input
@@ -476,7 +700,6 @@ const InterviewPreparation = () => {
                     )}
                 </div>
 
-                {/* Company Selection */}
                 <Card className="glass-card border-gray-200 bg-white/90 shadow-lg p-6 mb-6">
                     <div className="flex flex-col gap-4">
                         <div className="flex flex-col sm:flex-row items-end gap-4">
@@ -539,17 +762,28 @@ const InterviewPreparation = () => {
                     </div>
                 </Card>
 
-                {/* Interview Questions Display */}
                 <Card className="glass-card border-gray-200 bg-white/90 shadow-lg p-6">
                     {interviewQuestions ? (
                         <div className="space-y-6">
-                            <div className="border-b border-gray-200 pb-4">
-                                <div className="flex items-center justify-between">
-                                    <h2 className="text-2xl font-bold text-gray-900 m-0">Interview Questions & Answers</h2>
+                            <div className="border-b-2 border-gray-200 pb-4">
+                                <div className="flex items-center justify-between flex-wrap gap-3">
+                                    <div>
+                                        <h2 className="text-3xl font-bold text-gray-900 m-0">Interview Questions & Answers</h2>
+                                        <p className="text-sm text-gray-600 mt-2">
+                                            Based on your resume and the job description
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <div className="px-4 py-2 bg-green-100 border-2 border-green-300 rounded-lg">
+                                            <div className="text-xs text-green-700 font-semibold">Conceptual</div>
+                                            <div className="text-2xl font-bold text-green-800">60%</div>
+                                        </div>
+                                        <div className="px-4 py-2 bg-purple-100 border-2 border-purple-300 rounded-lg">
+                                            <div className="text-xs text-purple-700 font-semibold">Coding</div>
+                                            <div className="text-2xl font-bold text-purple-800">40%</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <p className="text-sm text-gray-600 mt-2">
-                                    Based on your resume and the job description
-                                </p>
                             </div>
                             <div className="space-y-4">
                                 {renderInterviewQuestions(interviewQuestions)}
