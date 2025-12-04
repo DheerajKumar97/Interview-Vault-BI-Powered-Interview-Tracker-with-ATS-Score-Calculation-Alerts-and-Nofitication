@@ -733,6 +733,7 @@ app.post('/api/validate-email', async (req, res) => {
 // Generate Interview Questions Endpoint
 app.post('/api/generate-interview-questions', async (req, res) => {
   try {
+    const startTime = Date.now();
     const { resumeText, jobDescription, companyName, jobTitle, apiKey, apiType } = req.body;
 
     if (!resumeText || !jobDescription) {
@@ -741,515 +742,129 @@ app.post('/api/generate-interview-questions', async (req, res) => {
 
     console.log('🤖 Generating interview questions for:', companyName, '-', jobTitle);
 
-    // Parse API keys from environment
+    // Helper function to truncate text to reduce token count
+    const truncateText = (text, maxChars = 1500) => {
+      if (!text) return '';
+      return text.length > maxChars ? text.substring(0, maxChars) + '...' : text;
+    };
+
+    // Truncate to reduce token usage
+    const truncatedResume = truncateText(resumeText, 1500);
+    const truncatedJobDesc = truncateText(jobDescription, 800);
+
+    // Optimized prompt with reduced tokens
+    const prompt = `Generate 10 interview questions for ${jobTitle} at ${companyName}.
+
+Resume: ${truncatedResume}
+
+Job: ${truncatedJobDesc}
+
+Format:
+- Q1-5: Conceptual (2 paragraph answers)
+- Q6-10: Coding (code + brief explanation)
+
+Output as:
+Question 1: [question]
+Answer: [answer]
+...
+Question 10: [question]
+Answer: [answer]`;
+
+    let questions = null;
+    let lastError = null;
+
+    // Set timeout for server (can be longer than Netlify)
+    const REQUEST_TIMEOUT = 30000; // 30 seconds for local server
+
+    // Parse Perplexity API keys
     let perplexityKeys = [];
-    let geminiKeys = [];
-    let huggingfaceKeys = [];
-
-    // If user provided custom keys, use them
-    if (apiKey && apiType) {
-      if (apiType === 'perplexity') {
-        perplexityKeys = [apiKey];
-      } else if (apiType === 'gemini') {
-        geminiKeys = [apiKey];
-      } else if (apiType === 'huggingface') {
-        huggingfaceKeys = [apiKey];
-      }
-    } else {
-      // Load Perplexity keys
-      if (process.env.PERPLEXITY_API_KEY) {
-        try {
-          const parsed = JSON.parse(process.env.PERPLEXITY_API_KEY);
-          perplexityKeys = Array.isArray(parsed) ? parsed : [process.env.PERPLEXITY_API_KEY];
-        } catch (e) {
-          perplexityKeys = [process.env.PERPLEXITY_API_KEY];
-        }
-      }
-
-      // Load Gemini keys
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          const parsed = JSON.parse(process.env.GEMINI_API_KEY);
-          geminiKeys = Array.isArray(parsed) ? parsed : [process.env.GEMINI_API_KEY];
-        } catch (e) {
-          geminiKeys = [process.env.GEMINI_API_KEY];
-        }
-      }
-
-      // Load HuggingFace keys
-      if (process.env.HUGGINGFACE_API_KEY) {
-        try {
-          const parsed = JSON.parse(process.env.HUGGINGFACE_API_KEY);
-          huggingfaceKeys = Array.isArray(parsed) ? parsed : [process.env.HUGGINGFACE_API_KEY];
-        } catch (e) {
-          huggingfaceKeys = [process.env.HUGGINGFACE_API_KEY];
-        }
+    if (process.env.PERPLEXITY_API_KEY) {
+      try {
+        const parsed = JSON.parse(process.env.PERPLEXITY_API_KEY);
+        perplexityKeys = Array.isArray(parsed) ? parsed : [process.env.PERPLEXITY_API_KEY];
+      } catch (e) {
+        perplexityKeys = [process.env.PERPLEXITY_API_KEY];
       }
     }
 
-    if (perplexityKeys.length === 0 && geminiKeys.length === 0 && huggingfaceKeys.length === 0) {
-      console.error('❌ No API keys found');
-      return res.status(401).json({
-        error: 'API keys not configured',
-        requiresKey: true
+    // Check if Perplexity API key is configured
+    if (perplexityKeys.length === 0) {
+      console.error('❌ No PERPLEXITY_API_KEY found');
+      return res.status(500).json({
+        error: 'Perplexity API key not configured',
+        message: 'Please set PERPLEXITY_API_KEY environment variable',
+        hint: 'Set PERPLEXITY_API_KEY in your environment variables'
       });
     }
 
-    console.log(`📋 Found ${perplexityKeys.length} Perplexity key(s), ${geminiKeys.length} Gemini key(s), and ${huggingfaceKeys.length} HuggingFace key(s)`);
+    console.log('🔵 Using Perplexity API\n');
 
-    const prompt = `You are an expert technical interviewer with deep industry experience. Generate EXACTLY 20 highly relevant interview questions with comprehensive answers based on the candidate's resume and the job description.
+    // Try each Perplexity key
+    for (let i = 0; i < perplexityKeys.length; i++) {
+      const currentKey = perplexityKeys[i].trim();
+      const maskedKey = currentKey.substring(0, 8) + '...' + currentKey.substring(currentKey.length - 4);
+      console.log(`🔑 [PERPLEXITY ${i + 1}/${perplexityKeys.length}] Trying: ${maskedKey}`);
 
-**Candidate's Resume:**
-${resumeText}
+      const attemptStart = Date.now();
 
-**Job Description for ${jobTitle} at ${companyName}:**
-${jobDescription}
-
-**QUESTION DISTRIBUTION REQUIREMENTS:**
-- Generate EXACTLY 20 questions total
-- 10 questions (50%) MUST be CONCEPTUAL based on real-time experience, projects, and scenarios
-- 10 questions (50%) MUST be CODING questions with detailed explanations and complete code examples
-- ALL questions must be directly relevant to skills mentioned in the resume and job description
-- Match questions to the role's primary programming languages and technologies
-
-**ROLE-SPECIFIC LANGUAGE GUIDELINES:**
-Tailor questions based on the job role and use appropriate languages from this reference:
-
-🖥️ SOFTWARE & DATA ROLES:
-• Full Stack Engineer: JavaScript/TypeScript, Python/Java, SQL
-• Backend Developer: Java, Python, Go
-• Frontend Developer: JavaScript, TypeScript, HTML/CSS
-• Data Analyst: SQL, Python, R
-• Data Engineer: Python, SQL, Scala
-• Data Scientist: Python, R, SQL
-• Machine Learning Engineer: Python, C++, Java
-• AI/LLM Engineer: Python, C++, Rust
-• Cloud Engineer: Python, Go, Java
-• DevOps Engineer: Python, Go, Bash
-• MLOps Engineer: Python, Go, Shell
-• Cybersecurity Engineer: Python, C, PowerShell
-• Mobile App Developer: Kotlin, Swift, Dart
-• Game Developer: C#, C++, Python
-• Blockchain Developer: Solidity, Rust, Go
-
-⚙️ HARDWARE/SEMICONDUCTOR/VLSI ROLES:
-• RTL Design Engineer: SystemVerilog, Verilog, TCL/Python
-• VLSI Design Engineer: Verilog/SystemVerilog, VHDL, Python/Perl
-• Design Verification Engineer: SystemVerilog (UVM), Verilog, Python/Perl
-• ASIC Verification Engineer: SystemVerilog + UVM, Verilog, Python/C++
-• FPGA Prototyping Engineer: VHDL, Verilog, TCL/Python
-• Physical Design Engineer: TCL, Python, Perl
-• DFT Engineer: SystemVerilog, TCL, Python
-• CAD/EDA Tools Engineer: Python, Perl, TCL
-• Embedded Systems Engineer: C, C++, Assembly
-• Firmware Engineer: C, C++, Python
-• Semiconductor Test Engineer: C, Python, VBScript/LabVIEW
-• Mixed-Signal Design Engineer: Verilog-A/Verilog-AMS, SystemVerilog, MATLAB
-• Analog Layout Engineer: SKILL (Cadence), Python, TCL
-• DSP Engineer: C, C++, MATLAB
-• SOC Architect/SOC Design Engineer: SystemVerilog, C++, Python
-
-**FORMAT FOR CONCEPTUAL QUESTIONS (50% - 10 Questions):**
-
-Question [Number]: [Specific scenario-based or experience-based question related to real projects]
-Answer:
-[Paragraph 1: 6-7 lines covering the core concept, approach, methodology, and real-world considerations. Discuss how this applies in production environments, team scenarios, or actual project implementations.]
-
-[Paragraph 2: 6-7 lines providing specific examples, best practices, trade-offs, challenges faced in real scenarios, and how experienced professionals handle this situation. Include metrics, tools, or frameworks where relevant.]
-
-**EXAMPLE OF PERFECT CONCEPTUAL ANSWER:**
-
-Question 1: Describe a situation where you had to optimize a slow-running database query in a production system. What was your approach and what tools did you use?
-Answer:
-When dealing with slow queries in production, the first step is to identify the bottleneck using database profiling tools like EXPLAIN PLAN in PostgreSQL or Query Execution Plans in SQL Server. I would analyze query execution time, examine table indexes, check for full table scans, and review join operations. The optimization process involves understanding data distribution, cardinality, and access patterns. Common issues include missing indexes, inefficient joins, or selecting unnecessary columns. It's crucial to test changes in a staging environment first and monitor the impact using APM tools like New Relic or Datadog.
-
-In one project, I reduced query time from 45 seconds to 2 seconds by adding composite indexes on frequently filtered columns and rewriting a subquery as a JOIN. I used query profiling to identify that a WHERE clause wasn't utilizing indexes properly. After optimization, I set up alerts for query performance degradation and documented the changes for the team. This experience taught me to always measure performance before and after changes, consider the trade-off between read and write performance when adding indexes, and involve DBAs for complex optimization scenarios.
-
-**FORMAT FOR CODING QUESTIONS (50% - 10 Questions):**
-
-Question [Number]: [Specific coding problem or implementation challenge]
-Answer:
-[6-7 lines of explanation covering the problem, approach, algorithm/data structure choice, time/space complexity, and why this solution is optimal]
-
-\`\`\`[language]
-[Complete, production-ready, well-commented code that actually runs]
-[Include proper error handling, edge cases, and best practices]
-[Code should be 15-30 lines minimum for meaningful implementation]
-\`\`\`
-
-[6-7 lines explaining how the code works, key implementation details, and what makes this solution effective]
-
-[6-7 lines covering real-world applications, performance considerations, alternative approaches, or common pitfalls to avoid]
-
-**EXAMPLE OF PERFECT CODING ANSWER:**
-
-Question 13: Implement a rate limiter in Python that allows a maximum of 5 requests per minute per user using the sliding window algorithm.
-Answer:
-A rate limiter controls the number of requests a user can make within a time window. The sliding window approach is more accurate than fixed windows as it considers the exact timestamps of requests. We'll use a deque to store timestamps and remove expired entries. This solution has O(1) amortized time complexity for checking and O(k) space complexity where k is the request limit.
-
-\`\`\`python
-from collections import deque
-from datetime import datetime, timedelta
-from typing import Dict
-
-class RateLimiter:
-    def __init__(self, max_requests: int = 5, time_window: int = 60):
-        """
-        Initialize rate limiter with sliding window algorithm
-        :param max_requests: Maximum requests allowed
-        :param time_window: Time window in seconds
-        """
-        self.max_requests = max_requests
-        self.time_window = time_window
-        self.user_requests: Dict[str, deque] = {}
-    
-    def is_allowed(self, user_id: str) -> bool:
-        """
-        Check if request is allowed for user
-        :param user_id: Unique user identifier
-        :return: True if request is allowed, False otherwise
-        """
-        current_time = datetime.now()
-        
-        # Initialize user's request queue if not exists
-        if user_id not in self.user_requests:
-            self.user_requests[user_id] = deque()
-        
-        request_queue = self.user_requests[user_id]
-        
-        # Remove requests outside the time window
-        cutoff_time = current_time - timedelta(seconds=self.time_window)
-        while request_queue and request_queue[0] < cutoff_time:
-            request_queue.popleft()
-        
-        # Check if under rate limit
-        if len(request_queue) < self.max_requests:
-            request_queue.append(current_time)
-            return True
-        
-        return False
-
-# Example usage
-limiter = RateLimiter(max_requests=5, time_window=60)
-user = "user_123"
-
-for i in range(7):
-    if limiter.is_allowed(user):
-        print(f"Request {i+1}: Allowed")
-    else:
-        print(f"Request {i+1}: Rate limit exceeded")
-\`\`\`
-
-The code maintains a queue of timestamps for each user and removes expired entries before checking the limit. The deque data structure provides efficient O(1) append and popleft operations. This implementation is thread-safe for single-threaded applications but would need locks or Redis for distributed systems.
-
-In production APIs, rate limiters prevent abuse and ensure fair resource usage. For distributed systems, use Redis with ZSET for shared state across servers. Consider different limits for authenticated vs anonymous users and implement exponential backoff for repeated violations.
-
-**CRITICAL REQUIREMENTS FOR ALL 20 QUESTIONS:**
-✅ Questions 1-10: Conceptual/Experience-based (10-12 lines each, 2 paragraphs)
-✅ Questions 11-20: Coding questions (5-6 lines explanation + complete code + 5-6 lines details + 5-6 lines real-world context)
-✅ Every coding question MUST include working code in triple backticks with language specification
-✅ Code must be complete, executable, and production-quality (15-20 lines minimum)
-✅ Match programming languages to the job role and resume
-✅ Focus on technologies and skills explicitly mentioned in the job description
-✅ Avoid generic questions - make them specific to the candidate's background
-✅ Include proper error handling, edge cases, and comments in code
-✅ For hardware/VLSI roles: Include SystemVerilog/Verilog/VHDL as appropriate
-✅ For data roles: Include SQL queries with JOINs, aggregations, and optimizations
-✅ For backend roles: Include API design, database interactions, and system design
-✅ For frontend roles: Include React/Vue/Angular components with state management
-
-Generate all 20 questions NOW following this EXACT format. Make answers comprehensive, practical, and directly relevant to the candidate's experience and the job requirements.`;
-
-    let questions = null;
-    let usedProvider = null;
-    let usedModel = null;
-    let usedApiKey = null;
-    let lastError = null;
-
-    // ============================================
-    // PHASE 1: TRY ALL PERPLEXITY KEYS
-    // ============================================
-    if (perplexityKeys.length > 0) {
-      console.log('\n🔵 PHASE 1: Trying Perplexity API Keys\n');
-
-      for (let i = 0; i < perplexityKeys.length; i++) {
-        const currentKey = perplexityKeys[i].trim();
-        const maskedKey = currentKey.substring(0, 8) + '...' + currentKey.substring(currentKey.length - 4);
-        console.log(`🔑 [PERPLEXITY ${i + 1}/${perplexityKeys.length}] Trying: ${maskedKey}`);
-
-        try {
-          const response = await axios.post('https://api.perplexity.ai/chat/completions', {
+      try {
+        const response = await axios.post(
+          'https://api.perplexity.ai/chat/completions',
+          {
             model: 'sonar',
-            messages: [
-              {
-                role: 'user',
-                content: prompt
-              }
-            ],
+            messages: [{
+              role: 'user',
+              content: prompt
+            }],
             temperature: 0.7,
-            max_tokens: 9072
-          }, {
+            max_tokens: 2048
+          },
+          {
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${currentKey}`
             },
-            timeout: 120000
+            timeout: REQUEST_TIMEOUT
+          }
+        );
+
+        questions = response.data.choices?.[0]?.message?.content;
+
+        if (questions && questions.length > 100) {
+          const totalTime = Date.now() - startTime;
+          console.log(`✅ [PERPLEXITY ${i + 1}/${perplexityKeys.length}] SUCCESS! (${Date.now() - attemptStart}ms)`);
+          console.log(`⏱️  Total execution time: ${totalTime}ms`);
+
+          return res.status(200).json({
+            success: true,
+            questions: questions,
+            provider: 'perplexity',
+            model: 'sonar',
+            executionTime: totalTime
           });
-
-          questions = response.data.choices?.[0]?.message?.content;
-
-          if (questions) {
-            usedProvider = 'perplexity';
-            usedModel = 'sonar';
-            usedApiKey = maskedKey;
-            console.log(`✅ [PERPLEXITY ${i + 1}/${perplexityKeys.length}] SUCCESS!`);
-            console.log(`   🔑 API Key: ${maskedKey}`);
-            console.log(`   🤖 Model: sonar`);
-            console.log(`   📊 Response length: ${questions.length} chars`);
-            console.log(`   🎯 Stopping iteration - Delivering response\n`);
-            break;
-          } else {
-            console.log(`⚠️  [PERPLEXITY ${i + 1}/${perplexityKeys.length}] Empty response\n`);
-          }
-        } catch (error) {
-          lastError = error;
-          const status = error.response?.status || 'N/A';
-          const errorMsg = error.response?.data?.error || error.message;
-
-          console.error(`❌ [PERPLEXITY ${i + 1}/${perplexityKeys.length}] FAILED`);
-          console.error(`   Status: ${status}`);
-          console.error(`   Error: ${errorMsg}`);
-
-          if (i < perplexityKeys.length - 1) {
-            console.log(`   ⏭️  Trying next Perplexity key...\n`);
-          } else {
-            console.log(`   ⏭️  All Perplexity keys exhausted\n`);
-          }
         }
-      }
+      } catch (error) {
+        lastError = error;
+        const attemptTime = Date.now() - attemptStart;
+        console.error(`❌ [PERPLEXITY ${i + 1}/${perplexityKeys.length}] FAILED: ${error.message} (${attemptTime}ms)`);
 
-      if (questions) {
-        console.log(`✅ PERPLEXITY PHASE SUCCESS: Delivering response\n`);
-      } else {
-        console.log(`❌ PERPLEXITY PHASE FAILED: All ${perplexityKeys.length} keys exhausted\n`);
+        if (i < perplexityKeys.length - 1) {
+          console.log(`   ⏭️  Trying next Perplexity key...\n`);
+        }
       }
     }
 
-    // ============================================
-    // PHASE 2: IF PERPLEXITY FAILED, TRY GEMINI
-    // ============================================
-    if (!questions && geminiKeys.length > 0) {
-      console.log('🟢 PHASE 2: Switching to Gemini API Keys\n');
-      const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
+    // All Perplexity keys failed
+    console.log('❌ All Perplexity keys failed\n');
 
-      for (let i = 0; i < geminiKeys.length; i++) {
-        const currentKey = geminiKeys[i].trim();
-        const maskedKey = currentKey.substring(0, 8) + '...' + currentKey.substring(currentKey.length - 4);
-        console.log(`🔑 [GEMINI ${i + 1}/${geminiKeys.length}] Trying: ${maskedKey}`);
-
-        try {
-          const response = await axios.post(`${GEMINI_API_URL}?key=${currentKey}`, {
-            contents: [{
-              parts: [{
-                text: prompt
-              }]
-            }],
-            generationConfig: {
-              temperature: 0.7,
-              topK: 40,
-              topP: 0.95,
-              maxOutputTokens: 3072,
-            }
-          }, {
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            timeout: 80000
-          });
-
-          questions = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-          if (questions) {
-            usedProvider = 'gemini';
-            usedModel = 'gemini-2.0-flash-lite';
-            usedApiKey = maskedKey;
-            console.log(`✅ [GEMINI ${i + 1}/${geminiKeys.length}] SUCCESS!`);
-            console.log(`   🔑 API Key: ${maskedKey}`);
-            console.log(`   🤖 Model: gemini-2.0-flash-lite`);
-            console.log(`   📊 Response length: ${questions.length} chars`);
-            console.log(`   🎯 Stopping iteration - Delivering response\n`);
-            break;
-          } else {
-            console.log(`⚠️  [GEMINI ${i + 1}/${geminiKeys.length}] Empty response\n`);
-          }
-        } catch (error) {
-          lastError = error;
-          const status = error.response?.status || 'N/A';
-          const errorMsg = error.response?.data?.error?.message || error.message;
-
-          console.error(`❌ [GEMINI ${i + 1}/${geminiKeys.length}] FAILED`);
-          console.error(`   Status: ${status}`);
-          console.error(`   Error: ${errorMsg}`);
-
-          if (i < geminiKeys.length - 1) {
-            console.log(`   ⏭️  Trying next Gemini key...\n`);
-          } else {
-            console.log(`   ⏭️  All Gemini keys exhausted\n`);
-          }
-        }
-      }
-
-      if (questions) {
-        console.log(`✅ GEMINI PHASE SUCCESS: Delivering response\n`);
-      } else {
-        console.log(`❌ GEMINI PHASE FAILED: All ${geminiKeys.length} keys exhausted\n`);
-      }
-    }
-
-    // ============================================
-    // PHASE 3: IF GEMINI FAILED, TRY HUGGINGFACE
-    // ============================================
-    if (!questions && huggingfaceKeys.length > 0) {
-      console.log('🟡 PHASE 3: Switching to HuggingFace API Keys\n');
-
-      const huggingfaceModels = [
-        { name: "Qwen 2.5", id: "Qwen/Qwen2.5-72B-Instruct" },
-        { name: "Llama 3.1", id: "meta-llama/Llama-3.1-70B-Instruct" }
-      ];
-
-      for (let i = 0; i < huggingfaceKeys.length; i++) {
-        const currentKey = huggingfaceKeys[i].trim();
-        const maskedKey = currentKey.substring(0, 5) + '...' + currentKey.substring(currentKey.length - 4);
-
-        for (const model of huggingfaceModels) {
-          console.log(`🔑 [HUGGINGFACE ${i + 1}/${huggingfaceKeys.length}] Key: ${maskedKey} | Model: ${model.name}`);
-
-          try {
-            const response = await axios.post(
-              `https://api-inference.huggingface.co/models/${model.id}`,
-              {
-                inputs: prompt,
-                parameters: {
-                  max_new_tokens: 3072,
-                  temperature: 0.7,
-                  top_p: 0.95,
-                  do_sample: true
-                }
-              },
-              {
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${currentKey}`
-                },
-                timeout: 60000 // HuggingFace can be slower
-              }
-            );
-
-            // HuggingFace returns different response formats
-            let generatedText = null;
-
-            if (Array.isArray(response.data)) {
-              generatedText = response.data[0]?.generated_text;
-            } else if (response.data.generated_text) {
-              generatedText = response.data.generated_text;
-            } else if (typeof response.data === 'string') {
-              generatedText = response.data;
-            }
-
-            // Remove the prompt from the response if it's included
-            if (generatedText && generatedText.includes(prompt)) {
-              generatedText = generatedText.replace(prompt, '').trim();
-            }
-
-            if (generatedText && generatedText.length > 100) {
-              questions = generatedText;
-              usedProvider = 'huggingface';
-              usedModel = model.name;
-              usedApiKey = maskedKey;
-              console.log(`✅ [HUGGINGFACE ${i + 1}/${huggingfaceKeys.length}] SUCCESS!`);
-              console.log(`   🔑 API Key: ${maskedKey}`);
-              console.log(`   🤖 Model: ${model.name} (${model.id})`);
-              console.log(`   📊 Response length: ${generatedText.length} chars`);
-              console.log(`   🎯 Stopping iteration - Delivering response\n`);
-              break;
-            } else {
-              console.log(`⚠️  [HUGGINGFACE ${i + 1}/${huggingfaceKeys.length}] Empty or short response for ${model.name}\n`);
-            }
-          } catch (error) {
-            lastError = error;
-            const status = error.response?.status || 'N/A';
-            const errorMsg = error.response?.data?.error || error.message;
-
-            console.error(`❌ [HUGGINGFACE ${i + 1}/${huggingfaceKeys.length}] FAILED - ${model.name}`);
-            console.error(`   Status: ${status}`);
-            console.error(`   Error: ${errorMsg}`);
-
-            // Check if model is loading
-            if (error.response?.data?.error?.includes('loading')) {
-              console.log(`   ⏳ Model is loading, trying next model...\n`);
-            }
-          }
-        }
-
-        // Break outer loop if we got questions
-        if (questions) break;
-
-        if (i < huggingfaceKeys.length - 1) {
-          console.log(`   ⏭️  Trying next HuggingFace key...\n`);
-        } else {
-          console.log(`   ⏭️  All HuggingFace keys exhausted\n`);
-        }
-      }
-
-      if (questions) {
-        console.log(`✅ HUGGINGFACE PHASE SUCCESS: Delivering response\n`);
-      } else {
-        console.log(`❌ HUGGINGFACE PHASE FAILED: All ${huggingfaceKeys.length} keys exhausted\n`);
-      }
-    }
-
-    // ============================================
-    // RETURN RESULT OR ERROR
-    // ============================================
-    if (questions) {
-      console.log(`\n✅ ====================================`);
-      console.log(`✅ INTERVIEW QUESTIONS GENERATED!`);
-      console.log(`✅ ====================================`);
-      console.log(`   Provider: ${usedProvider.toUpperCase()}`);
-      console.log(`   Model: ${usedModel}`);
-      console.log(`   API Key: ${usedApiKey}`);
-      console.log(`✅ ====================================\n`);
-
-      return res.status(200).json({
-        success: true,
-        questions: questions,
-        provider: usedProvider,
-        model: usedModel,
-        apiKey: usedApiKey
-      });
-    }
-
-    // All keys failed
-    const totalKeys = perplexityKeys.length + geminiKeys.length + huggingfaceKeys.length;
-    console.error(`\n❌ ====================================`);
-    console.error(`❌ ALL ${totalKeys} API KEYS FAILED`);
-    console.error(`❌ ====================================`);
-    console.error(`   Perplexity: ${perplexityKeys.length} keys tried`);
-    console.error(`   Gemini: ${geminiKeys.length} keys tried`);
-    console.error(`   HuggingFace: ${huggingfaceKeys.length} keys tried`);
-    console.error(`   Last error: ${lastError?.message}`);
-    console.error(`❌ ====================================\n`);
+    const totalTime = Date.now() - startTime;
+    console.error(`❌ Failed to generate questions. Error:`, lastError?.message);
+    console.log(`⏱️  Total execution time: ${totalTime}ms`);
 
     return res.status(500).json({
-      error: 'All API keys exhausted. Please provide your own API key.',
+      error: 'Failed to generate questions',
       message: lastError?.message || 'Failed to generate interview questions',
-      requiresKey: true,
-      details: {
-        perplexityKeysTried: perplexityKeys.length,
-        geminiKeysTried: geminiKeys.length,
-        huggingfaceKeysTried: huggingfaceKeys.length,
-        totalKeysTried: totalKeys
-      }
+      hint: 'Please check your PERPLEXITY_API_KEY or try again later'
     });
 
   } catch (error) {
@@ -1710,31 +1325,31 @@ app.post('/api/generate-projects', async (req, res) => {
 
     console.log('🤖 Generating project suggestions for:', companyName, '-', jobTitle);
 
-    // Parse GEMINI_API_KEY from .env - it can be a JSON array or a single string
+    // Parse PERPLEXITY_API_KEY from .env - it can be a JSON array or a single string
     let apiKeys = [];
 
     if (apiKey) {
       // If user provided a custom key, use it first
       apiKeys = [apiKey];
-    } else if (process.env.GEMINI_API_KEY) {
+    } else if (process.env.PERPLEXITY_API_KEY) {
       try {
         // Try to parse as JSON array first
-        const parsed = JSON.parse(process.env.GEMINI_API_KEY);
+        const parsed = JSON.parse(process.env.PERPLEXITY_API_KEY);
         if (Array.isArray(parsed)) {
           apiKeys = parsed;
         } else {
-          apiKeys = [process.env.GEMINI_API_KEY];
+          apiKeys = [process.env.PERPLEXITY_API_KEY];
         }
       } catch (e) {
         // If not JSON, treat as single key
-        apiKeys = [process.env.GEMINI_API_KEY];
+        apiKeys = [process.env.PERPLEXITY_API_KEY];
       }
     }
 
     if (apiKeys.length === 0) {
-      console.error('❌ No GEMINI_API_KEY found');
+      console.error('❌ No PERPLEXITY_API_KEY found');
       return res.status(401).json({
-        error: 'Gemini API key not configured',
+        error: 'Perplexity API key not configured',
         requiresKey: true
       });
     }
@@ -1766,55 +1381,50 @@ IMPORTANT:
 Job Description:
 ${jobDescription}`;
 
-    const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent';
-
     // Try each API key in order until one works
     let lastError = null;
     let suggestions = null;
 
     for (let i = 0; i < apiKeys.length; i++) {
       const currentKey = apiKeys[i].trim();
-      console.log(`🔑 Trying API key ${i + 1}/${apiKeys.length}...`);
+      console.log(`🔑 Trying Perplexity API key ${i + 1}/${apiKeys.length}...`);
 
       try {
         const response = await axios.post(
-          `${API_URL}?key=${currentKey}`,
+          'https://api.perplexity.ai/chat/completions',
           {
-            contents: [{
-              parts: [{
-                text: prompt
-              }]
+            model: 'sonar',
+            messages: [{
+              role: 'user',
+              content: prompt
             }],
-            generationConfig: {
-              temperature: 0.9,
-              topK: 40,
-              topP: 0.95,
-              maxOutputTokens: 2048,
-            }
+            temperature: 0.7,
+            max_tokens: 2048
           },
           {
             headers: {
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${currentKey}`
             },
-            timeout: 80000 // 1:20 second timeout
+            timeout: 30000 // 30 second timeout
           }
         );
 
-        suggestions = response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'No suggestions generated';
-        console.log(`✅ Success with API key ${i + 1}/${apiKeys.length}`);
+        suggestions = response.data.choices?.[0]?.message?.content || 'No suggestions generated';
+        console.log(`✅ Success with Perplexity API key ${i + 1}/${apiKeys.length}`);
         break; // Success! Exit the loop
       } catch (error) {
         lastError = error;
         const status = error.response?.status || 500;
-        const errorMsg = error.response?.data?.error?.message || error.message;
+        const errorMsg = error.response?.data?.error || error.message;
 
-        console.log(`❌ API key ${i + 1}/${apiKeys.length} failed (${status}): ${errorMsg}`);
+        console.log(`❌ Perplexity API key ${i + 1}/${apiKeys.length} failed (${status}): ${errorMsg}`);
 
         // If this is the last key, we'll handle the error below
         if (i === apiKeys.length - 1) {
-          console.error('❌ All API keys exhausted');
+          console.error('❌ All Perplexity API keys exhausted');
         } else {
-          console.log(`⏭️  Trying next API key...`);
+          console.log(`⏭️  Trying next Perplexity API key...`);
         }
       }
     }
@@ -1832,10 +1442,10 @@ ${jobDescription}`;
     const status = lastError?.response?.status || 500;
     const errorData = lastError?.response?.data || {};
 
-    console.error(`❌ All API keys failed. Last error (${status}):`, JSON.stringify(errorData));
+    console.error(`❌ All Perplexity API keys failed. Last error (${status}):`, JSON.stringify(errorData));
 
     res.status(status).json({
-      error: 'All API keys exhausted. Please provide your own API key.',
+      error: 'All Perplexity API keys exhausted. Please check your API configuration.',
       message: lastError?.message || 'Failed to generate project suggestions',
       details: errorData,
       requiresKey: true // Tell frontend to ask for custom key
