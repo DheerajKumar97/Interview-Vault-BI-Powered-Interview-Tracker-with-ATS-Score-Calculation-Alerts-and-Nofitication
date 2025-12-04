@@ -434,14 +434,14 @@ const InterviewPreparation = () => {
                 !trimmed.match(/^question\s*$/i) &&
                 !trimmed.match(/^---.*---$/);
         });
-        if (questions.length > 10) {
-            console.warn(`⚠️ AI generated ${questions.length} questions, limiting to 10`);
-            questions = questions.slice(0, 10);
+        if (questions.length > 20) {
+            console.warn(`⚠️ AI generated ${questions.length} questions, limiting to 20`);
+            questions = questions.slice(0, 20);
         }
         let questionCounter = 0;
 
         return questions.map((question, index) => {
-            if (index >= 10) return null;
+            if (index >= 20) return null;
             const cleanQuestion = question.trim();
             if (!cleanQuestion) return null;
 
