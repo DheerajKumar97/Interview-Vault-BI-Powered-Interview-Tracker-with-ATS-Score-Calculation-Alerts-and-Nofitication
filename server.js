@@ -1431,30 +1431,137 @@ app.post('/api/generate-projects', async (req, res) => {
 
     console.log(`📋 Found ${apiKeys.length} API key(s) to try`);
 
-    const prompt = `Based on the following job description for ${jobTitle} at ${companyName}, generate 3-5 innovative project ideas that would be impressive for a portfolio and demonstrate the required skills.
+    const prompt = `You are a senior technical recruiter and career advisor. Based on the following job description for ${jobTitle} at ${companyName}, generate EXACTLY 5 innovative, industry-relevant project ideas that would be impressive for a portfolio.
 
-For each project, use EXACTLY this format:
+========================================
+STRICT FORMATTING REQUIREMENTS - MUST FOLLOW EXACTLY
+========================================
 
-1. Project Title: [Full project name here]
-Project Description: [2-3 sentence description of what this project does and its purpose]
-Key Technologies/Skills Used: [List of technologies]
-Why it's impressive for this role: [Explanation of relevance]
+Generate EXACTLY 5 PROJECTS. No more, no less.
 
-2. Project Title: [Full project name here]
-Project Description: [2-3 sentence description of what this project does and its purpose]
-Key Technologies/Skills Used: [List of technologies]
-Why it's impressive for this role: [Explanation of relevance]
+For EACH project, follow this EXACT format structure:
 
-IMPORTANT: 
-- Start each project with the number and "Project Title:" on one line
-- The FIRST line after the title MUST be "Project Description:"
-- Then "Key Technologies/Skills Used:"
-- Then "Why it's impressive for this role:"
-- Separate each project with a blank line
-- Do NOT use asterisks, markdown, or special formatting
+1. Project Title: [Full descriptive project name]
+Project Description: [Line 1 - What the project does and its core purpose]
+[Line 2 - Key features and functionality]
+[Line 3 - Technical implementation approach and architecture]
+[Line 4 - Innovation or unique selling point]
+[Line 5 - Real-world impact and value delivered]
+Key Technologies/Skills Used: [Complete end-to-end tech stack from requirement gathering to deployment - include: Business Analysis Tools (Jira, Confluence, Figma), Frontend Technologies, Backend Technologies, Databases, APIs, Testing Tools (Jest, Pytest, Selenium), CI/CD Tools (GitHub Actions, Jenkins), Cloud/Deployment Platforms (AWS, Azure, Docker, Kubernetes), Monitoring Tools (Prometheus, Grafana), and any other role-specific skills]
+Why it's impressive for this role: [Line 1 - Direct alignment with job requirements and how it demonstrates must-have skills from the job description]
+[Line 2 - Business value and ROI perspective - explain the commercial impact and market relevance]
+[Line 3 - Industry trends and job market demand - why this skill set is highly sought after currently]
+[Line 4 - Competitive advantage for the candidate - what makes this project stand out to hiring managers and technical interviewers]
 
-Job Description:
-${jobDescription}`;
+2. Project Title: [Full descriptive project name]
+Project Description: [Line 1 - What the project does and its core purpose]
+[Line 2 - Key features and functionality]
+[Line 3 - Technical implementation approach and architecture]
+[Line 4 - Innovation or unique selling point]
+[Line 5 - Real-world impact and value delivered]
+Key Technologies/Skills Used: [Complete end-to-end tech stack from requirement gathering to deployment - include: Business Analysis Tools (Jira, Confluence, Figma), Frontend Technologies, Backend Technologies, Databases, APIs, Testing Tools (Jest, Pytest, Selenium), CI/CD Tools (GitHub Actions, Jenkins), Cloud/Deployment Platforms (AWS, Azure, Docker, Kubernetes), Monitoring Tools (Prometheus, Grafana), and any other role-specific skills]
+Why it's impressive for this role: [Line 1 - Direct alignment with job requirements and how it demonstrates must-have skills from the job description]
+[Line 2 - Business value and ROI perspective - explain the commercial impact and market relevance]
+[Line 3 - Industry trends and job market demand - why this skill set is highly sought after currently]
+[Line 4 - Competitive advantage for the candidate - what makes this project stand out to hiring managers and technical interviewers]
+
+[Continue this pattern for projects 3, 4, and 5]
+
+========================================
+CRITICAL ENFORCEMENT RULES - VIOLATION WILL CAUSE REJECTION
+========================================
+
+1. TOTAL PROJECTS: Generate EXACTLY 5 projects. Not 3, not 4, not 6. EXACTLY 5.
+
+2. PROJECT DESCRIPTION LINE COUNT:
+   - MUST be EXACTLY 5 lines (5 separate sentences)
+   - Count: Line 1, Line 2, Line 3, Line 4, Line 5
+   - Each line = ONE complete sentence ending with a period
+   - NO bullet points, NO dashes, NO asterisks
+   - Start counting AFTER "Project Description:" label
+   - STOP at EXACTLY 5 lines before "Key Technologies/Skills Used:"
+
+3. KEY TECHNOLOGIES/SKILLS USED:
+   - MUST include COMPLETE end-to-end lifecycle tools
+   - Start with: Requirement gathering (Jira, Confluence, Miro, Figma, Draw.io)
+   - Include: Development (programming languages, frameworks, libraries)
+   - Include: Testing (unit testing, integration testing, E2E testing tools)
+   - Include: Version Control (Git, GitHub, GitLab)
+   - Include: CI/CD (GitHub Actions, Jenkins, CircleCI, Travis CI)
+   - Include: Deployment (Docker, Kubernetes, AWS, Azure, GCP, Vercel, Netlify)
+   - Include: Monitoring (Prometheus, Grafana, Datadog, New Relic, Sentry)
+   - Include: Security tools if relevant (OWASP, penetration testing tools)
+   - List 15-25 specific technologies showing full project lifecycle mastery
+
+4. WHY IT'S IMPRESSIVE LINE COUNT:
+   - MUST be EXACTLY 4 lines (4 separate sentences)
+   - Count: Line 1, Line 2, Line 3, Line 4
+   - Each line = ONE complete sentence ending with a period
+   - Start counting AFTER "Why it's impressive for this role:" label
+   - Line 1: Job description alignment
+   - Line 2: Business value and ROI impact
+   - Line 3: Industry trends and job market demand
+   - Line 4: Competitive advantage for candidate
+   - STOP at EXACTLY 4 lines
+
+5. FORMATTING RULES:
+   - NO markdown formatting (**, *, __, etc.)
+   - NO bullet points or special characters
+   - Use plain text only
+   - Separate each project with ONE blank line
+   - Project numbering: "1. Project Title:", "2. Project Title:", etc.
+   - Label format EXACTLY as: "Project Description:", "Key Technologies/Skills Used:", "Why it's impressive for this role:"
+
+6. BUSINESS & MARKET DEPTH REQUIREMENTS:
+   - "Why it's impressive" Line 2 MUST discuss: revenue impact, cost savings, efficiency gains, market positioning, or customer acquisition
+   - "Why it's impressive" Line 3 MUST discuss: current industry trends, hiring demand statistics, or emerging technologies in the job market
+   - Use specific business metrics (ROI, conversion rates, user growth, time savings)
+   - Reference real industry challenges and how the project addresses them
+
+7. LINE COUNTING VERIFICATION:
+   - Before generating, mentally count: "1, 2, 3, 4, 5" for Project Description
+   - Before generating, mentally count: "1, 2, 3, 4" for Why it's impressive
+   - If you write 6 lines for description, YOU FAILED
+   - If you write 3 lines for why impressive, YOU FAILED
+   - Recount after writing each section
+
+========================================
+EXAMPLE STRUCTURE (Follow this pattern exactly):
+========================================
+
+1. Project Title: AI-Powered Customer Support Analytics Platform
+Project Description: This platform analyzes customer support conversations across multiple channels to identify pain points and improve service quality.
+It features real-time sentiment analysis, automated ticket categorization, and predictive escalation detection.
+The system uses microservices architecture with React frontend, Node.js backend, and machine learning models for natural language processing.
+The innovation lies in integrating multi-channel data (email, chat, phone transcripts) into a unified analytics dashboard with actionable insights.
+Companies using this system have reduced average resolution time by 35% and improved customer satisfaction scores by 28%.
+Key Technologies/Skills Used: Requirement Gathering (Jira, Confluence, Figma for wireframes), Frontend (React, TypeScript, Redux, Material-UI, Chart.js), Backend (Node.js, Express, Python for ML models), Database (PostgreSQL, Redis for caching, Elasticsearch for search), APIs (REST, GraphQL, WebSocket for real-time updates), ML/AI (TensorFlow, scikit-learn, NLTK, spaCy), Testing (Jest, React Testing Library, Pytest, Selenium), Version Control (Git, GitHub), CI/CD (GitHub Actions, Docker Compose), Deployment (AWS EC2, S3, RDS, Docker, Kubernetes), Monitoring (Prometheus, Grafana, CloudWatch, Sentry for error tracking), Security (OAuth 2.0, JWT, encryption), Documentation (Swagger, JSDoc)
+Why it's impressive for this role: This project directly demonstrates full-stack development, microservices architecture, and AI/ML integration which are core requirements mentioned in the job description for this ${jobTitle} position.
+From a business perspective, this showcases ability to deliver measurable ROI through data-driven solutions that reduce operational costs and improve customer retention metrics that executives care about.
+The combination of NLP and real-time analytics is currently one of the hottest skill sets in the job market with 67% year-over-year growth in demand according to 2024 tech hiring reports.
+During technical interviews, this project provides talking points about scalability challenges, ML model deployment, and end-to-end system design that immediately signal senior-level engineering competence.
+
+[Then continue with projects 2, 3, 4, and 5 following the exact same structure]
+
+========================================
+JOB DESCRIPTION TO ANALYZE:
+========================================
+
+${jobDescription}
+
+========================================
+FINAL CHECKLIST BEFORE RESPONDING:
+========================================
+☐ Did I generate EXACTLY 5 projects?
+☐ Does EACH Project Description have EXACTLY 5 lines?
+☐ Does EACH "Why it's impressive" have EXACTLY 4 lines?
+☐ Did I include 15-25 technologies covering the FULL lifecycle (requirement → deployment → monitoring)?
+☐ Did I explain business value with specific metrics in Line 2 of "Why impressive"?
+☐ Did I reference job market trends in Line 3 of "Why impressive"?
+☐ Is my formatting clean with NO markdown symbols?
+☐ Did I separate projects with a blank line?
+
+Now generate the 5 projects following ALL rules above:`;
 
     // Try each API key in order until one works
     let lastError = null;
