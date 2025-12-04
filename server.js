@@ -534,7 +534,7 @@ app.post('/api/send-digest-email', async (req, res) => {
 });
 
 // Initialize Supabase Admin Client
-const adminSupabaseUrl = process.env.VITE_SUPABASE_URL;
+const adminSupabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const adminSupabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 const supabaseAdmin = createClient(adminSupabaseUrl, adminSupabaseKey);
 
@@ -879,7 +879,8 @@ Answer: [answer]`;
 
 
 // Initialize Supabase client for server-side operations
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
+// Note: Use non-VITE_ prefixed env vars for server-side (VITE_ vars are for browser only)
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 console.log('🔧 Supabase URL:', supabaseUrl);
