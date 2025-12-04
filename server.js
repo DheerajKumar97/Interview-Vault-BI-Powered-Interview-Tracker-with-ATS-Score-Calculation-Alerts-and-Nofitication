@@ -1503,6 +1503,23 @@ app.post('/api/update-env', async (req, res) => {
   }
 });
 
+// ============================================
+// PRODUCTION: Serve React Build
+// ============================================
+if (process.env.NODE_ENV === 'production') {
+  const path = require('path');
+
+  // Serve static files from React build
+  app.use(express.static(path.join(__dirname, 'dist')));
+
+  // Handle React routing - return index.html for all non-API routes
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  });
+
+  console.log('✅ Serving React build from /dist');
+}
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {
   console.log(`✅ Server running on port ${PORT}`);

@@ -1,31 +1,32 @@
-// Test script for Netlify function locally
-// Run with: node test-netlify-function.js
+// Test script to verify Netlify function locally
+const testPayload = {
+    resumeText: "Software Engineer with 5 years experience in JavaScript, React, Node.js",
+    jobDescription: "Looking for a Senior Full Stack Developer with React and Node.js experience",
+    companyName: "Test Company",
+    jobTitle: "Senior Full Stack Developer"
+};
 
-import 'dotenv/config'; // Load environment variables from .env
-import { handler } from './netlify/functions/generate-interview-questions.js';
+// Simulate Netlify function call
+const event = {
+    httpMethod: 'POST',
+    body: JSON.stringify(testPayload)
+};
 
-async function testFunction() {
-    console.log('🧪 Testing Netlify Function Locally...\n');
+// Import and test the function
+import('./netlify/functions/generate-interview-questions.js')
+    .then(module => {
+        console.log('✅ Function loaded successfully');
+        console.log('🔑 Checking PERPLEXITY_API_KEY:', process.env.PERPLEXITY_API_KEY ? 'SET' : 'NOT SET');
 
-    const event = {
-        httpMethod: 'POST',
-        body: JSON.stringify({
-            resumeText: 'Software Engineer with 5 years experience in Python, JavaScript, React, Node.js, SQL',
-            jobDescription: 'Looking for a Full Stack Developer with experience in React and Node.js',
-            companyName: 'Test Company',
-            jobTitle: 'Full Stack Developer'
-        })
-    };
-
-    const context = {};
-
-    try {
-        const result = await handler(event, context);
-        console.log('✅ Status Code:', result.statusCode);
-        console.log('📦 Response:', JSON.parse(result.body));
-    } catch (error) {
-        console.error('❌ Error:', error);
-    }
-}
-
-testFunction();
+        return module.handler(event, {});
+    })
+    .then(response => {
+        console.log('\n✅ Function Response:');
+        console.log('Status Code:', response.statusCode);
+        console.log('Body:', response.body);
+    })
+    .catch(error => {
+        console.error('\n❌ Error testing function:');
+        console.error(error.message);
+        console.error(error.stack);
+    });

@@ -434,10 +434,14 @@ const InterviewPreparation = () => {
                 !trimmed.match(/^question\s*$/i) &&
                 !trimmed.match(/^---.*---$/);
         });
-
+        if (questions.length > 10) {
+            console.warn(`⚠️ AI generated ${questions.length} questions, limiting to 10`);
+            questions = questions.slice(0, 10);
+        }
         let questionCounter = 0;
 
         return questions.map((question, index) => {
+            if (index >= 10) return null;
             const cleanQuestion = question.trim();
             if (!cleanQuestion) return null;
 
@@ -776,11 +780,11 @@ const InterviewPreparation = () => {
                                     <div className="flex gap-3">
                                         <div className="px-4 py-2 bg-green-100 border-2 border-green-300 rounded-lg">
                                             <div className="text-xs text-green-700 font-semibold">Conceptual</div>
-                                            <div className="text-2xl font-bold text-green-800">60%</div>
+                                            <div className="text-2xl font-bold text-green-800">50%</div>
                                         </div>
                                         <div className="px-4 py-2 bg-purple-100 border-2 border-purple-300 rounded-lg">
                                             <div className="text-xs text-purple-700 font-semibold">Coding</div>
-                                            <div className="text-2xl font-bold text-purple-800">40%</div>
+                                            <div className="text-2xl font-bold text-purple-800">50%</div>
                                         </div>
                                     </div>
                                 </div>
