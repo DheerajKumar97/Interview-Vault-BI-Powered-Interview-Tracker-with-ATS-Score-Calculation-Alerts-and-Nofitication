@@ -1507,7 +1507,6 @@ app.post('/api/update-env', async (req, res) => {
 // PRODUCTION: Serve React Build
 // ============================================
 if (process.env.NODE_ENV === 'production') {
-  const path = require('path');
 
   // Serve static files from React build
   app.use(express.static(path.join(__dirname, 'dist')));
