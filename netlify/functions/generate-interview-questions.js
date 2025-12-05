@@ -102,9 +102,17 @@ TOTAL: EXACTLY 20 questions
 - Core concepts on PRACTICAL IMPLEMENTATION
 - Related to PROJECTS in resume and job requirements
 - Test "WHY" and "HOW" things work in production
-- Each answer: MINIMUM 4 lines (4-5 complete sentences with **bold** keywords)
-- CRITICAL: Use **bold** for ALL technical keywords, formulas, metrics, tools, and key concepts
-- Example: "**React Hooks** like **useState** and **useEffect** manage state and side effects in functional components. The **Virtual DOM** uses **O(n)** reconciliation algorithm for efficient updates. **useMemo** and **useCallback** prevent unnecessary re-renders by memoizing values. **React Fiber** architecture enables incremental rendering and prioritization of updates."
+
+🚨 MANDATORY FORMATTING FOR CONCEPTUAL ANSWERS:
+✅ EXACTLY 4-5 COMPLETE SENTENCES (NOT 1-2 sentences!)
+✅ EVERY technical term, formula, metric, tool MUST be in **bold**
+✅ Minimum 100-120 words per answer
+✅ Each sentence must add NEW technical information
+
+Example (FOLLOW THIS EXACT FORMAT):
+Question: "Explain React state management in your e-commerce project"
+Answer:
+"**React Hooks** like **useState** and **useEffect** manage state and side effects in functional components, eliminating the need for class components. The **Virtual DOM** uses an **O(n) reconciliation algorithm** to efficiently update only changed elements, improving performance significantly. **useMemo** and **useCallback** hooks prevent unnecessary re-renders by memoizing expensive computations and function references. **React Context API** provides global state management with **Provider** and **Consumer** patterns, avoiding prop drilling. **React Fiber** architecture enables **incremental rendering** and **time-slicing**, allowing React to pause and resume work for better responsiveness."
 
 **PART 2 (Questions 11-20): CODING - 50%**
 - Advanced difficulty
@@ -189,13 +197,13 @@ DO NOT include section headers like "PART 1" or "CONCEPTUAL QUESTIONS". Start di
 
 Question 1: [Conceptual question about project/implementation]
 Answer:
-[MINIMUM 4 lines with **bold** keywords for technical terms, formulas, metrics. 4-5 complete sentences with technical depth.]
+[MANDATORY: Write 4-5 COMPLETE sentences here. Each sentence must contain **bold** technical keywords. DO NOT write just 1-2 short sentences. Explain the concept with technical depth, formulas, metrics, and implementation details. Minimum 100 words.]
 
 Question 2: [Conceptual question]
 Answer:
-[MINIMUM 4 lines with **bold** keywords. 4-5 complete sentences with technical depth.]
+[MANDATORY: Write 4-5 COMPLETE sentences here. Each sentence must contain **bold** technical keywords. DO NOT write just 1-2 short sentences. Explain with algorithms, performance metrics, and technical architecture. Minimum 100 words.]
 
-[Questions 3-10 follow same short format]
+[Questions 3-10 follow SAME MANDATORY 4-5 sentence format with **bold** keywords]
 
 Question 11: [Coding question in primary skill]
 Answer:
@@ -212,23 +220,29 @@ Answer:
 [Questions 12-20 follow same format, distributed by role weightage]
 
 ========================================
-CRITICAL RULES
+CRITICAL RULES - STRICT ENFORCEMENT
 ========================================
 ❌ NO section headers like "--- PART 1: CONCEPTUAL QUESTIONS (1-10) ---"
 ❌ NO separators or dividers between questions
+❌ NO short 1-2 sentence answers (REJECTED!)
+❌ NO answers without **bold** keywords (REJECTED!)
 ✅ Start IMMEDIATELY with "Question 1: ..."
-✅ Use **bold** for technical terms, formulas, metrics, tools
-✅ Conceptual answers: MINIMUM 4 lines (4-5 sentences with **bold**)
+✅ Use **bold** for EVERY technical term, formula, metric, tool
+✅ Conceptual answers: MANDATORY 4-5 COMPLETE sentences (100+ words each)
 ✅ EXACTLY 20 questions numbered sequentially from 1 to 20
+✅ Count your sentences - if answer has less than 4 sentences, ADD MORE
 
 ========================================
-CHECKLIST
+MANDATORY CHECKLIST - VERIFY BEFORE SUBMITTING
 ========================================
 ☐ EXACTLY 20 questions numbered 1-20?
 ☐ NO section headers or separator lines?
-☐ Questions 1-10 conceptual (minimum 4 lines with **bold**)?
-☐ Questions 11-20 coding (role weightage distribution)?
-☐ Every answer uses **bold** for technical keywords?
+☐ Questions 1-10: Each answer has 4-5 COMPLETE sentences (100+ words)?
+☐ Questions 1-10: EVERY technical keyword is wrapped in **bold**?
+☐ Questions 1-10: Count sentences - if less than 4, REJECTED!
+☐ Questions 11-20: Coding questions with role weightage distribution?
+☐ EVERY answer uses **bold** for ALL technical terms, formulas, metrics?
+☐ No short 1-2 sentence answers anywhere?
 
 NOW GENERATE ALL 20 QUESTIONS STARTING WITH "Question 1:":`;
 
